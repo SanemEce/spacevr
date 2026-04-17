@@ -645,6 +645,18 @@
           crossorigin="anonymous"
           src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776353022/uranusSurface_b7aanu.jpg"
         />
+
+        <img
+          id="jupiterSurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776425581/gas_giant_skybox_4k_c5rhbo.jpg"
+        />
+
+        <img
+        id="saturnSurface"
+        crossorigin="anonymous"
+        src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776425777/gas_planet_ground_straight_4k_a1ofuf.jpg"
+      />
        
       </a-assets>
 
@@ -710,7 +722,7 @@
         animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear"
         event-set__mouseenter="scale: 1.15 1.15 1.15"
         event-set__mouseleave="scale: 1 1 1"
-        strict-switch-sky-on-click="target: #image-360; src: "
+        strict-switch-sky-on-click="target: #image-360; src: #jupiterSurface"
       ></a-sphere>
 
       <a-entity
@@ -730,7 +742,7 @@
             src="#saturnTexture"
             event-set__mouseenter="scale: 1.15 1.15 1.15"
             event-set__mouseleave="scale: 1 1 1"
-            strict-switch-sky-on-click="target: #image-360; src: "
+            strict-switch-sky-on-click="target: #image-360; src: #saturnSurface"
           ></a-sphere>
 
           <a-ring
