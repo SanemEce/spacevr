@@ -411,6 +411,138 @@
           this.wasVisible = isVisible;
         },
       });
+
+      AFRAME.registerComponent('place-right-on-show', {
+        schema: {
+          forwardDistance: { default: 1.4 },
+          rightDistance: { default: 1.6 },
+          yOffset: { default: 0 },
+        },
+
+        init: function () {
+          this.wasVisible = this.el.getAttribute('visible');
+          this.cameraPos = new THREE.Vector3();
+          this.forward = new THREE.Vector3();
+          this.right = new THREE.Vector3();
+          this.up = new THREE.Vector3(0, 1, 0);
+          this.newPos = new THREE.Vector3();
+        },
+
+        tick: function () {
+          const isVisible = this.el.getAttribute('visible');
+
+          if (!this.wasVisible && isVisible) {
+            const camera = this.el.sceneEl && this.el.sceneEl.camera;
+            if (!camera) return;
+
+            camera.getWorldPosition(this.cameraPos);
+            camera.getWorldDirection(this.forward);
+            this.forward.y = 0;
+            if (this.forward.lengthSq() === 0) return;
+            this.forward.normalize();
+
+            this.right.crossVectors(this.up, this.forward).normalize();
+
+            this.newPos.copy(this.cameraPos);
+            this.newPos.addScaledVector(this.forward, this.data.forwardDistance);
+            this.newPos.addScaledVector(this.right, this.data.rightDistance);
+            this.newPos.y = this.cameraPos.y + this.data.yOffset;
+
+            this.el.object3D.position.copy(this.newPos);
+          }
+
+          this.wasVisible = isVisible;
+        },
+      });
+
+      AFRAME.registerComponent('sky-info-panel', {
+        init: function () {
+          this.skyEl = document.querySelector('#image-360');
+          this.textEl = this.el.querySelector('.info-text');
+          this.returnThumbEl = document.querySelector('#space-return-thumb');
+          this.updateInfo = this.updateInfo.bind(this);
+
+          this.infoMap = {
+            mercurySurface: {
+              title: 'Mercury',
+              body: 'Mercury is the closest planet to the Sun and has a rocky surface full of impact craters.'
+            },
+            venusSurface: {
+              title: 'Venus',
+              body: 'Venus has a dense atmosphere and an extremely hot surface hidden beneath thick clouds.'
+            },
+            earthSurface: {
+              title: 'Earth',
+              body: 'Earth is the only known planet with stable liquid water oceans and life.'
+            },
+            marsSurface: {
+              title: 'Mars',
+              body: 'Mars is the red planet, known for dusty plains, giant volcanoes, and polar ice caps.'
+            },
+            uranusSurface: {
+              title: 'Uranus',
+              body: 'Uranus is an ice giant with a blue-green atmosphere and a dramatic axial tilt.'
+            },
+            neptuneSurface: {
+              title: 'Neptune',
+              body: 'Neptune is a distant ice giant with powerful winds and a deep blue atmosphere.'
+            }
+          };
+
+          if (!this.skyEl || !this.textEl) return;
+
+          this.el.sceneEl.addEventListener('loaded', this.updateInfo);
+          this.skyEl.addEventListener('componentchanged', this.updateInfo);
+          this.skyEl.addEventListener('materialtextureloaded', this.updateInfo);
+
+          this.updateInfo();
+        },
+
+        updateInfo: function (evt) {
+          if (evt && evt.detail && evt.detail.name && evt.detail.name !== 'material') {
+            return;
+          }
+          if (!this.skyEl || !this.textEl) return;
+
+          const skyMat =
+            this.skyEl.getObject3D('mesh') &&
+            this.skyEl.getObject3D('mesh').material;
+          const currentImage = skyMat && skyMat.map && skyMat.map.image;
+
+          if (!currentImage || !currentImage.currentSrc) {
+            this.el.setAttribute('visible', false);
+            if (this.returnThumbEl) this.returnThumbEl.setAttribute('visible', false);
+            return;
+          }
+
+          const currentSrc = currentImage.currentSrc;
+          const defaultSky = document.querySelector('#space');
+          if (defaultSky && defaultSky.currentSrc === currentSrc) {
+            this.el.setAttribute('visible', false);
+            if (this.returnThumbEl) this.returnThumbEl.setAttribute('visible', false);
+            return;
+          }
+
+          let matched = null;
+          for (const key in this.infoMap) {
+            const asset = document.querySelector('#' + key);
+            if (asset && asset.currentSrc === currentSrc) {
+              matched = this.infoMap[key];
+              break;
+            }
+          }
+
+          if (!matched) {
+            this.el.setAttribute('visible', false);
+            if (this.returnThumbEl) this.returnThumbEl.setAttribute('visible', false);
+            return;
+          }
+
+          this.textEl.setAttribute('text', 'value', matched.title + '\n\n' + matched.body);
+          this.el.setAttribute('visible', true);
+          if (this.returnThumbEl) this.returnThumbEl.setAttribute('visible', true);
+        },
+      });
     </script>
   </head>
 
@@ -649,21 +781,47 @@
       ></a-sky>
 
       <a-entity
-        id="space-return-thumb"
-        class="clickable"
-        position="0 -1 -3"
-        scale="1 1 1"
-        geometry="primitive: plane; width: 1.5; height: 1"
-        material="shader: flat; src: #space-thumb; transparent: true; alphaTest: 0.5; side: double"
-        sound="on: click; src: #click-sound"
-        billboard
-        place-in-front-on-show="distance: 3"
-        hide-on-default-sky="defaultSky: #space"
+        id="planet-ui-group"
+        position="0 0 -2.5"
         visible="false"
-        event-set__mouseenter="scale: 1.5 1.5 1.5"
-        event-set__mouseleave="scale: 1 1 1"
-        switch-sky-on-click="target: #image-360; src: #space"
-      ></a-entity>
+        billboard
+        place-right-on-show="forwardDistance: 1.4; rightDistance: 1.6; yOffset: 0"
+        sky-info-panel
+      >
+        <a-entity
+          id="planet-info-panel"
+          position="0 0 0"
+        >
+          <a-plane
+            class="info-bg"
+            width="2.6"
+            height="1.35"
+            color="#111"
+            material="opacity: 0.85; transparent: true; side: double"
+          ></a-plane>
+
+          <a-entity
+            class="info-text"
+            position="0 0 0.01"
+            text="value: ; align: center; color: white; width: 2.2; wrapCount: 28"
+          ></a-entity>
+        </a-entity>
+
+        <a-entity
+          id="space-return-thumb"
+          class="clickable"
+          position="0 -1.1 0.01"
+          scale="1 1 1"
+          geometry="primitive: plane; width: 1.5; height: 1"
+          material="shader: flat; src: #space-thumb; transparent: true; alphaTest: 0.5; side: double"
+          sound="on: click; src: #click-sound"
+          visible="false"
+          event-set__mouseenter="scale: 1.5 1.5 1.5"
+          event-set__mouseleave="scale: 1 1 1"
+          switch-sky-on-click="target: #image-360; src: #space"
+        ></a-entity>
+      </a-entity>
+      </a-entity>
 
       <a-entity id="rig" position="0 0 0">
         <a-entity
