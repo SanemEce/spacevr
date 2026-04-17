@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SPACE VR</title>
+    <meta name="description" content="360&deg; Image Gallery - A-Frame" />
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-event-set-component@5.x.x/dist/aframe-event-set-component.min.js"></script>
+
+    <script>
+      AFRAME.registerComponent('billboard', {
+        init: function () {
+          this.cameraWorldPosition = new THREE.Vector3();
+        },
+
+        tick: function () {
+          const camera = this.el.sceneEl && this.el.sceneEl.camera;
+          if (!camera) return;
+
+          camera.getWorldPosition(this.cameraWorldPosition);
+          this.el.object3D.lookAt(this.cameraWorldPosition);
+        },
+      });
+
+      AFRAME.registerComponent('show-on-default-sky', {
+        schema: {
+          defaultSky: { type: 'selector' },
+        },
+
+        init: function () {
+          this.skyEl = document.querySelector('#image-360');
+          this.updateVisibility = this.updateVisibility.bind(this);
+
+          if (!this.skyEl || !this.data.defaultSky) return;
+
+          this.el.sceneEl.addEventListener('loaded', this.updateVisibility);
+          this.skyEl.addEventListener('componentchanged', this.updateVisibility);
+          this.skyEl.addEventListener('materialtextureloaded', this.updateVisibility);
+
+          this.updateVisibility();
+        },
+
+        updateVisibility: function (evt) {
+          if (
+            evt &&
+            evt.detail &&
+            evt.detail.name &&
+            evt.detail.name !== 'material'
+          ) {
+            return;
+          }
+          if (!this.skyEl || !this.data.defaultSky) return;
+
+          const skyMat =
+            this.skyEl.getObject3D('mesh') &&
+            this.skyEl.getObject3D('mesh').material;
+          const currentImage = skyMat && skyMat.map && skyMat.map.image;
+          const defaultImage = this.data.defaultSky;
+          const isDefault = currentImage === defaultImage;
+
+          this.el.setAttribute('visible', isDefault);
+
+          if (isDefault) {
+            this.el.classList.add('clickable');
+          } else {
+            this.el.classList.remove('clickable');
+          }
+        },
+      });
+
+      AFRAME.registerComponent('hide-on-default-sky', {
+        schema: {
+          defaultSky: { type: 'selector' },
+        },
+
+        init: function () {
+          this.skyEl = document.querySelector('#image-360');
+          this.updateVisibility = this.updateVisibility.bind(this);
+
+          if (!this.skyEl || !this.data.defaultSky) return;
+
+          this.el.sceneEl.addEventListener('loaded', this.updateVisibility);
+          this.skyEl.addEventListener('componentchanged', this.updateVisibility);
+          this.skyEl.addEventListener('materialtextureloaded', this.updateVisibility);
+
+          this.updateVisibility();
+        },
+
+        updateVisibility: function (evt) {
+          if (
+            evt &&
+            evt.detail &&
+            evt.detail.name &&
+            evt.detail.name !== 'material'
+          ) {
+            return;
+          }
+          if (!this.skyEl || !this.data.defaultSky) return;
+
+          const skyMat =
+            this.skyEl.getObject3D('mesh') &&
+            this.skyEl.getObject3D('mesh').material;
+          const currentImage = skyMat && skyMat.map && skyMat.map.image;
+          const defaultImage = this.data.defaultSky;
+          const isDefault = currentImage === defaultImage;
+
+          this.el.setAttribute('visible', !isDefault);
+
+          if (!isDefault) {
+            this.el.classList.add('clickable');
+          } else {
+            this.el.classList.remove('clickable');
+          }
+        },
+      });
+
+      AFRAME.registerComponent('switch-sky-on-click', {
+        schema: {
+          target: { type: 'selector' },
+          src: { type: 'selector' },
+        },
+
+        init: function () {
+          this.onClick = this.onClick.bind(this);
+          this.el.addEventListener('click', this.onClick);
+        },
+
+        onClick: function () {
+          if (!this.data.target || !this.data.src) return;
+
+          const rig = document.querySelector('#rig');
+          const cameraRig = document.querySelector('#cameraRig');
+
+          if (rig) {
+            rig.object3D.position.set(0, 0, 0);
+            rig.object3D.rotation.set(0, 0, 0);
+          }
+
+          if (cameraRig) {
+            cameraRig.object3D.position.set(0, 1.6, 0);
+          }
+
+          this.data.target.emit('fade');
+          this.data.target.setAttribute('src', '#' + this.data.src.id);
+        },
+
+        remove: function () {
+          this.el.removeEventListener('click', this.onClick);
+        },
+      });
+
+      AFRAME.registerComponent('strict-switch-sky-on-click', {
+        schema: {
+          target: { type: 'selector' },
+          src: { type: 'selector' },
+        },
+
+        init: function () {
+          this.onClick = this.onClick.bind(this);
+          this.el.addEventListener('click', this.onClick);
+        },
+
+        onClick: function (evt) {
+          if (!this.data.target || !this.data.src) return;
+
+          const cursorEl = evt.detail && evt.detail.cursorEl;
+          if (!cursorEl) return;
+
+          const raycaster = cursorEl.components && cursorEl.components.raycaster;
+          if (!raycaster || !raycaster.intersectedEls || !raycaster.intersectedEls.length) return;
+
+          if (raycaster.intersectedEls[0] !== this.el) return;
+
+          const rig = document.querySelector('#rig');
+          const cameraRig = document.querySelector('#cameraRig');
+
+          if (rig) {
+            rig.object3D.position.set(0, 0, 0);
+            rig.object3D.rotation.set(0, 0, 0);
+          }
+
+          if (cameraRig) {
+            cameraRig.object3D.position.set(0, 1.6, 0);
+          }
+
+          this.data.target.emit('fade');
+          this.data.target.setAttribute('src', '#' + this.data.src.id);
+        },
+
+        remove: function () {
+          this.el.removeEventListener('click', this.onClick);
+        },
+      });
+
+      AFRAME.registerComponent('thumbstick-locomotion', {
+        schema: {
+          speed: { default: 0.12 },
+          deadZone: { default: 0.2 },
+        },
+
+        init: function () {
+          this.direction = new THREE.Vector3();
+          this.forward = new THREE.Vector3();
+          this.right = new THREE.Vector3();
+          this.up = new THREE.Vector3(0, 1, 0);
+          this.inputX = 0;
+          this.inputY = 0;
+          this.onThumbstickMoved = this.onThumbstickMoved.bind(this);
+          this.onThumbstickEnded = this.onThumbstickEnded.bind(this);
+
+          this.el.addEventListener('thumbstickmoved', this.onThumbstickMoved);
+          this.el.addEventListener('thumbstickend', this.onThumbstickEnded);
+        },
+
+        onThumbstickMoved: function (evt) {
+          this.inputX = evt.detail.x;
+          this.inputY = evt.detail.y;
+        },
+
+        onThumbstickEnded: function () {
+          this.inputX = 0;
+          this.inputY = 0;
+        },
+
+        tick: function () {
+          const rig = document.querySelector('#rig');
+          const camera = document.querySelector('[camera]');
+          if (!rig || !camera) return;
+
+          let x = this.inputX;
+          let y = this.inputY;
+
+          if (Math.abs(x) < this.data.deadZone) x = 0;
+          if (Math.abs(y) < this.data.deadZone) y = 0;
+
+          if (x === 0 && y === 0) return;
+
+          camera.object3D.getWorldDirection(this.forward);
+          this.forward.y = 0;
+
+          if (this.forward.lengthSq() === 0) return;
+          this.forward.normalize();
+
+          this.right.crossVectors(this.up, this.forward).normalize();
+
+          this.direction.set(0, 0, 0);
+          this.direction.addScaledVector(this.forward, y);
+          this.direction.addScaledVector(this.right, x);
+
+          if (this.direction.lengthSq() > 0) {
+            this.direction.normalize().multiplyScalar(this.data.speed);
+            rig.object3D.position.add(this.direction);
+          }
+        },
+
+        remove: function () {
+          this.el.removeEventListener('thumbstickmoved', this.onThumbstickMoved);
+          this.el.removeEventListener('thumbstickend', this.onThumbstickEnded);
+        },
+      });
+
+      AFRAME.registerComponent('desktop-cursor-toggle', {
+        init: function () {
+          this.sceneEl = this.el.sceneEl;
+          this.onEnterVR = this.onEnterVR.bind(this);
+          this.onExitVR = this.onExitVR.bind(this);
+
+          this.sceneEl.addEventListener('enter-vr', this.onEnterVR);
+          this.sceneEl.addEventListener('exit-vr', this.onExitVR);
+        },
+
+        onEnterVR: function () {
+          this.el.setAttribute('visible', false);
+          this.el.setAttribute('raycaster', 'enabled', true);
+        },
+
+        onExitVR: function () {
+          this.el.setAttribute('visible', false);
+          this.el.setAttribute('raycaster', 'enabled', true);
+        },
+
+        remove: function () {
+          this.sceneEl.removeEventListener('enter-vr', this.onEnterVR);
+          this.sceneEl.removeEventListener('exit-vr', this.onExitVR);
+        },
+      });
+
+      AFRAME.registerComponent('snap-turn', {
+        schema: {
+          angle: { default: 30 },
+          threshold: { default: 0.75 },
+        },
+
+        init: function () {
+          this.canTurn = true;
+          this.onThumbstickMoved = this.onThumbstickMoved.bind(this);
+          this.el.addEventListener('thumbstickmoved', this.onThumbstickMoved);
+        },
+
+        onThumbstickMoved: function (evt) {
+          const rig = document.querySelector('#rig');
+          if (!rig) return;
+
+          const x = evt.detail.x;
+
+          if (Math.abs(x) < this.data.threshold) {
+            this.canTurn = true;
+            return;
+          }
+
+          if (!this.canTurn) return;
+
+          const turnAmount = x > 0 ? -this.data.angle : this.data.angle;
+          rig.object3D.rotation.y += THREE.MathUtils.degToRad(turnAmount);
+          this.canTurn = false;
+        },
+
+        remove: function () {
+          this.el.removeEventListener('thumbstickmoved', this.onThumbstickMoved);
+        },
+      });
+
+      AFRAME.registerComponent('radial-ring-texture', {
+        schema: {
+          innerRadius: { default: 1.2 },
+          outerRadius: { default: 2.6 },
+        },
+
+        init: function () {
+          this.applyUVs = this.applyUVs.bind(this);
+          this.el.addEventListener('loaded', this.applyUVs);
+          this.el.addEventListener('object3dset', this.applyUVs);
+          this.el.addEventListener('materialtextureloaded', this.applyUVs);
+          this.applyUVs();
+        },
+
+        applyUVs: function () {
+          const mesh = this.el.getObject3D('mesh');
+          if (!mesh || !mesh.geometry) return;
+
+          const geometry = mesh.geometry;
+          const positions = geometry.attributes.position;
+          const uvs = geometry.attributes.uv;
+          if (!positions || !uvs) return;
+
+          const inner = this.data.innerRadius;
+          const outer = this.data.outerRadius;
+          const radiusRange = outer - inner;
+          if (radiusRange <= 0) return;
+
+          for (let i = 0; i < positions.count; i++) {
+            const x = positions.getX(i);
+            const y = positions.getY(i);
+            const angle = (Math.atan2(y, x) + Math.PI) / (Math.PI * 2);
+            const radius = Math.sqrt(x * x + y * y);
+            const radial = THREE.MathUtils.clamp((radius - inner) / radiusRange, 0, 1);
+
+            uvs.setXY(i, radial, angle);
+          }
+
+          uvs.needsUpdate = true;
+
+          if (mesh.material && mesh.material.map) {
+            mesh.material.map.wrapS = THREE.ClampToEdgeWrapping;
+            mesh.material.map.wrapT = THREE.RepeatWrapping;
+            mesh.material.map.needsUpdate = true;
+          }
+        },
+
+        update: function () {
+          this.applyUVs();
+        },
+
+        remove: function () {
+          this.el.removeEventListener('loaded', this.applyUVs);
+          this.el.removeEventListener('object3dset', this.applyUVs);
+          this.el.removeEventListener('materialtextureloaded', this.applyUVs);
+        },
+      });
+
+      AFRAME.registerComponent('place-in-front-on-show', {
+        schema: {
+          distance: { default: 3 },
+        },
+
+        init: function () {
+          this.wasVisible = this.el.getAttribute('visible');
+          this.cameraPos = new THREE.Vector3();
+          this.forward = new THREE.Vector3();
+          this.newPos = new THREE.Vector3();
+        },
+
+        tick: function () {
+          const isVisible = this.el.getAttribute('visible');
+
+          if (!this.wasVisible && isVisible) {
+            const camera = this.el.sceneEl && this.el.sceneEl.camera;
+            if (!camera) return;
+
+            camera.getWorldPosition(this.cameraPos);
+            camera.getWorldDirection(this.forward);
+            this.forward.normalize();
+
+            this.newPos.copy(this.cameraPos);
+            this.newPos.addScaledVector(this.forward, this.data.distance);
+            this.newPos.y = -1;
+
+            this.el.object3D.position.copy(this.newPos);
+          }
+
+          this.wasVisible = isVisible;
+        },
+      });
+    </script>
+  </head>
+
+  <body>
+    <a-scene>
+      <a-assets>
+        <img
+          id="venusTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776238355/2k_venus_chij3g.jpg"
+        />
+        <img
+          id="mercuryTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776249140/2k_mercury_plto3q.jpg"
+        />
+
+        <img
+          id="earthTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776237719/2k_earth_daymap_brj1br.jpg"
+        />
+
+        <img
+          id="marsTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776348332/2k_mars_uargvx.jpg"
+        />
+
+        <img
+          id="jupiterTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776348332/2k_jupiter_k88jiv.jpg"
+        />
+
+        <img
+          id="saturnTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776348332/2k_saturn_szqbmb.jpg"
+        />
+
+        <img
+          id="saturnRingTexture"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776348339/2k_saturn_ring_alpha_aidyfe.png"
+        />
+
+        <img
+          id="uranusTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776350592/uranusmap-10x5k-CC_emboy5.jpg"
+        />
+
+        <img
+          id="neptuneTexture"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776348331/2k_neptune_wpt32v.jpg"
+        />
+
+        <img
+          id="space-thumb"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776244754/spaceButton_ef9spf.png"
+        />
+        <audio
+          id="click-sound"
+          crossorigin="anonymous"
+          src="https://cdn.aframe.io/360-image-gallery-boilerplate/audio/click.ogg"
+        ></audio>
+        <img
+          id="space"
+          crossorigin="anonymous"
+          src="https://cdn.eso.org/images/large/eso0932a.jpg"
+        />
+        <img
+          id="venusSurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/v1776243705/4k_venus_uowlh4.jpg"
+        />
+
+        <img
+          id="earthSurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776377320/earthSurface_adnofj.jpg"
+        />
+
+        <img
+          id="mercurySurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/v1776267245/mercury_surface_panorama_4096x2048_1.5x_igm3ew.jpg"
+        />
+
+        <img
+          id="marsSurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776360982/marsSurface_ufarfb.jpg"
+        />
+
+
+        <img
+          id="uranusSurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776362780/planetsurface_hm2qcd.jpg"
+        />
+       
+        <img
+          id="neptuneSurface"
+          crossorigin="anonymous"
+          src="https://res.cloudinary.com/dmz1efn8k/image/upload/q_auto/f_auto/v1776353022/uranusSurface_b7aanu.jpg"
+        />
+       
+      </a-assets>
+
+      <a-sphere
+        id="mercury"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="0 0 -8"
+        radius="1"
+        src="#mercuryTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: #mercurySurface"
+      ></a-sphere>
+
+      <a-sphere
+        id="venus"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="5.66 0 -5.66"
+        radius="1"
+        src="#venusTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 12000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: #venusSurface"
+      ></a-sphere>
+
+      <a-sphere
+        id="earth"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="8 0 0"
+        radius="1"
+        src="#earthTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 15000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: #earthSurface"
+      ></a-sphere>
+
+      <a-sphere
+        id="mars"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="5.66 0 5.66"
+        radius="1"
+        src="#marsTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 10000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: #marsSurface"
+      ></a-sphere>
+
+      <a-sphere
+        id="jupiter"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="0 0 8"
+        radius="1"
+        src="#jupiterTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 9000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: "
+      ></a-sphere>
+
+      <a-entity
+        id="saturn-group"
+        position="-5.66 0 5.66"
+        rotation="0 0 25"
+        show-on-default-sky="defaultSky: #space"
+      >
+        <a-entity
+          id="saturn-spin"
+          animation="property: rotation; to: 0 360 0; loop: true; dur: 11000; easing: linear"
+        >
+          <a-sphere
+            id="saturn"
+            class="clickable"
+            radius="1"
+            src="#saturnTexture"
+            event-set__mouseenter="scale: 1.15 1.15 1.15"
+            event-set__mouseleave="scale: 1 1 1"
+            strict-switch-sky-on-click="target: #image-360; src: "
+          ></a-sphere>
+
+          <a-ring
+            id="saturn-ring"
+            rotation="-90 0 0"
+            segments-theta="128"
+            segments-phi="8"
+            radius-inner="1.2"
+            radius-outer="2.6"
+            radial-ring-texture="innerRadius: 1.2; outerRadius: 2.6"
+            material="src: #saturnRingTexture; transparent: true; alphaTest: 0.05; side: double; shader: flat"
+          ></a-ring>
+        </a-entity>
+      </a-entity>
+
+      <a-sphere
+        id="uranus"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="-8 0 0"
+        radius="1"
+        src="#uranusTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 13000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: #uranusSurface"
+      ></a-sphere>
+
+      <a-sphere
+        id="neptune"
+        class="clickable"
+        show-on-default-sky="defaultSky: #space"
+        position="-5.66 0 -5.66"
+        radius="1"
+        src="#neptuneTexture"
+        animation="property: rotation; to: 0 360 0; loop: true; dur: 14000; easing: linear"
+        event-set__mouseenter="scale: 1.15 1.15 1.15"
+        event-set__mouseleave="scale: 1 1 1"
+        strict-switch-sky-on-click="target: #image-360; src: #neptuneSurface"
+      ></a-sphere>
+
+      <a-sky
+        id="image-360"
+        radius="100"
+        src="#space"
+        animation__fade="property: components.material.material.color; type: color; from: #FFF; to: #000; dur: 300; startEvents: fade"
+        animation__fadeback="property: components.material.material.color; type: color; from: #000; to: #FFF; dur: 300; startEvents: animationcomplete__fade"
+      ></a-sky>
+
+      <a-entity
+        id="space-return-thumb"
+        class="clickable"
+        position="0 -1 -3"
+        scale="1 1 1"
+        geometry="primitive: plane; width: 1.5; height: 1"
+        material="shader: flat; src: #space-thumb; transparent: true; alphaTest: 0.5; side: double"
+        sound="on: click; src: #click-sound"
+        billboard
+        place-in-front-on-show="distance: 3"
+        hide-on-default-sky="defaultSky: #space"
+        visible="false"
+        event-set__mouseenter="scale: 1.5 1.5 1.5"
+        event-set__mouseleave="scale: 1 1 1"
+        switch-sky-on-click="target: #image-360; src: #space"
+      ></a-entity>
+
+      <a-entity id="rig" position="0 0 0">
+        <a-entity
+          id="cameraRig"
+          camera
+          look-controls
+          wasd-controls="fly: true"
+          position="0 1.6 0"
+        >
+          <a-cursor
+            id="cursor"
+            desktop-cursor-toggle
+            cursor="rayOrigin: mouse"
+            raycaster="objects: .clickable"
+            visible="false"
+          ></a-cursor>
+        </a-entity>
+
+        <a-entity
+          id="leftHand"
+          meta-touch-controls="hand: left; model: true"
+          laser-controls="hand: left"
+          raycaster="objects: .clickable"
+          line="color: white; opacity: 0.75"
+          thumbstick-locomotion="speed: 0.12"
+        ></a-entity>
+
+        <a-entity
+          id="rightHand"
+          meta-touch-controls="hand: right; model: true"
+          laser-controls="hand: right"
+          raycaster="objects: .clickable"
+          line="color: white; opacity: 0.75"
+          snap-turn="angle: 30; threshold: 0.75"
+        ></a-entity>
+      </a-entity>
+    </a-scene>
+  </body>
+</html>
